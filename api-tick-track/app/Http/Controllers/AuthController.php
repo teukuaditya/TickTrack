@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use App\Http\Resources\UserResource;
+use App\Models\User;
+use App\Http\Requests\RegisterStoreRequest;
 
 class AuthController extends Controller
 {
@@ -71,4 +74,35 @@ class AuthController extends Controller
             ], 500);
         }
     }
+    public function register(RegisterStoreRequest $request)
+    {
+        $data = $request->validated();
+        DB::beginTransaction();
+        try {
+            $user = new User;
+            $user->name = $data['name'];
+            $user->email = $data['email'];
+            $user->password = bcrypt($data['password']);
+            $user->save();
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+            DB::commit();
+            return response()->json([
+                'message' => 'Registration successful',
+                'data' => [
+                    'user' => new UserResource($user),
+                    'token' => $token
+                ]
+            ], 201);
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Registration failed',
+                'error' => $th->getMessage(),
+                'data' => null
+            ], 500);
+        }
+    }
+
+
 }
